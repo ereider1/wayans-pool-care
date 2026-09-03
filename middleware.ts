@@ -6,9 +6,18 @@ export async function middleware(request: NextRequest) {
     request,
   })
 
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY
+
+  // If Supabase environment variables are missing, let the request pass through to avoid 500 Middleware Invocation Failed.
+  // The pages themselves will render configuration alerts or handle errors gracefully.
+  if (!url || !key) {
+    return supabaseResponse
+  }
+
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    url,
+    key,
     {
       cookies: {
         getAll() {
