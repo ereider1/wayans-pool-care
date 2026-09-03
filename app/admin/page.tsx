@@ -4,6 +4,7 @@ import { Fragment, useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/client';
 import type { User } from '@supabase/supabase-js';
+import MediaPreviewModal from '@/components/media-preview-modal';
 
 type Visit = {
   id: string;
@@ -34,6 +35,7 @@ export default function AdminPage() {
   const [savingId, setSavingId] = useState('');
   const [deletingId, setDeletingId] = useState('');
   const [draft, setDraft] = useState<EditDraft | null>(null);
+  const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
   useEffect(() => { void supabase.auth.getUser().then(({ data }) => setUser(data.user)); }, [supabase]);
 
@@ -64,6 +66,20 @@ export default function AdminPage() {
 
   useEffect(() => { if (user) void loadVisits(); }, [user, loadVisits]);
 
+  const isVideo = (path: string) => {
+    const p = path.toLowerCase();
+    return p.endsWith('.mp4') || p.endsWith('.mov') || p.endsWith('.webm');
+  };
+
+  const openPreview = (path: string) => {
+    const url = photoUrls[path];
+    if (!url) return;
+    setActiveMedia({
+      url,
+      type: isVideo(path) ? 'video' : 'image',
+    });
+  };
+
   const startEdit = (visit: Visit) => {
     setActionError('');
     setDraft({ id: visit.id, ph: String(visit.ph), chlorine: String(visit.chlorine), notes: visit.notes || '', status: visit.status });
@@ -89,7 +105,7 @@ export default function AdminPage() {
         const { error: photoError } = await supabase.storage.from('pool-photos').remove(paths);
         if (photoError) throw photoError;
       }
-      const { error: deleteError } = await supabase.from('visits').delete().eq('id', visit.id);
+      const { error: deleteError = null } = await supabase.from('visits').delete().eq('id', visit.id);
       if (deleteError) throw deleteError;
       if (draft?.id === visit.id) setDraft(null);
       await loadVisits();
@@ -211,9 +227,21 @@ export default function AdminPage() {
                         <td className="px-3 py-4">
                           <div className="flex items-center gap-1.5">
                             {visit.visit_photos.slice(0, 3).map(photo => photoUrls[photo.storage_path] ? (
-                              <a key={photo.id} href={photoUrls[photo.storage_path]} target="_blank" rel="noopener noreferrer">
-                                <img src={photoUrls[photo.storage_path]} alt={`${photo.photo_type} visit photo`} className="h-12 w-12 rounded-lg object-cover hover:opacity-85 transition-opacity" />
-                              </a>
+                              <button 
+                                key={photo.id} 
+                                type="button"
+                                onClick={() => openPreview(photo.storage_path)}
+                                className="h-12 w-12 overflow-hidden rounded-lg border border-[#b9ccdc] bg-[#edf2f6] hover:opacity-85 transition-opacity"
+                              >
+                                {isVideo(photo.storage_path) ? (
+                                  <div className="relative h-full w-full bg-black flex items-center justify-center">
+                                    <video src={photoUrls[photo.storage_path]} className="h-full w-full object-cover" muted />
+                                    <span className="absolute inset-0 flex items-center justify-center text-white text-[10px]">▶</span>
+                                  </div>
+                                ) : (
+                                  <img src={photoUrls[photo.storage_path]} alt={`${photo.photo_type} visit photo`} className="h-full w-full object-cover" />
+                                )}
+                              </button>
                             ) : (
                               <span key={photo.id} className="h-12 w-12 rounded-lg bg-[#edf2f6]" />
                             ))}
@@ -323,6 +351,14 @@ export default function AdminPage() {
           )}
         </div>
       </div>
+
+      {activeMedia && (
+        <MediaPreviewModal
+          url={activeMedia.url}
+          type={activeMedia.type}
+          onClose={() => setActiveMedia(null)}
+        />
+      )}
     </main>
   );
 }
