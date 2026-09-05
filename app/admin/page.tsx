@@ -80,6 +80,30 @@ export default function AdminPage() {
     });
   };
 
+  const handleShare = async (visit: Visit) => {
+    const poolName = visit.pools?.name || 'Pool';
+    const dateStr = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(visit.visited_at));
+    const shareUrl = `${window.location.origin}/share/visit/${visit.id}`;
+    const text = `≈ Wayan's Pool Care\n\nService report for ${poolName} on ${dateStr}.\npH: ${visit.ph}\nChlorine: ${visit.chlorine} ppm\n\nView details and photos here: ${shareUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Pool Report - ${poolName}`,
+          text: text,
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      // Fallback: Copy link and open WhatsApp
+      await navigator.clipboard.writeText(shareUrl);
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(waUrl, '_blank');
+    }
+  };
+
   const startEdit = (visit: Visit) => {
     setActionError('');
     setDraft({ id: visit.id, ph: String(visit.ph), chlorine: String(visit.chlorine), notes: visit.notes || '', status: visit.status });
@@ -257,14 +281,22 @@ export default function AdminPage() {
                           </span>
                         </td>
                         <td className="px-3 py-4">
-                          <div className="flex gap-2">
+                          <div className="flex gap-2.5">
+                            <button
+                              onClick={() => handleShare(visit)}
+                              className="text-xs font-bold text-blue hover:underline"
+                            >
+                              Share Report
+                            </button>
+                            <span className="text-[#d3e0eb]">|</span>
                             <button
                               disabled={savingId === visit.id}
                               onClick={() => startEdit(visit)}
-                              className="text-xs font-bold text-blue hover:underline"
+                              className="text-xs font-bold text-[#5d7390] hover:underline"
                             >
                               Edit
                             </button>
+                            <span className="text-[#d3e0eb]">|</span>
                             <button
                               disabled={deletingId === visit.id}
                               onClick={() => deleteVisit(visit)}

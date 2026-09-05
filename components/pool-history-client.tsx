@@ -22,6 +22,7 @@ type Visit = {
   chlorine: number;
   notes: string | null;
   status: string;
+  pools?: { name: string } | null;
   visit_chemicals: VisitChemical[];
   visit_photos: VisitPhoto[];
 };
@@ -29,9 +30,10 @@ type Visit = {
 type PoolHistoryClientProps = {
   visits: Visit[];
   photoUrls: Record<string, string>;
+  poolName?: string; // Optional parent pool name
 };
 
-export default function PoolHistoryClient({ visits, photoUrls }: PoolHistoryClientProps) {
+export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolHistoryClientProps) {
   const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
 
   const isVideo = (path: string) => {
@@ -46,6 +48,30 @@ export default function PoolHistoryClient({ visits, photoUrls }: PoolHistoryClie
       url,
       type: isVideo(path) ? 'video' : 'image',
     });
+  };
+
+  const handleShare = async (visit: Visit) => {
+    const finalPoolName = poolName || visit.pools?.name || 'Pool';
+    const dateStr = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(new Date(visit.visited_at));
+    const shareUrl = `${window.location.origin}/share/visit/${visit.id}`;
+    const text = `≈ Wayan's Pool Care\n\nService report for ${finalPoolName} on ${dateStr}.\npH: ${visit.ph}\nChlorine: ${visit.chlorine} ppm\n\nView details and photos here: ${shareUrl}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Pool Report - ${finalPoolName}`,
+          text: text,
+          url: shareUrl,
+        });
+      } catch (err) {
+        console.error('Error sharing:', err);
+      }
+    } else {
+      // Fallback: Copy link and open WhatsApp
+      await navigator.clipboard.writeText(shareUrl);
+      const waUrl = `https://wa.me/?text=${encodeURIComponent(text)}`;
+      window.open(waUrl, '_blank');
+    }
   };
 
   return (
@@ -122,11 +148,22 @@ export default function PoolHistoryClient({ visits, photoUrls }: PoolHistoryClie
           )}
 
           {visit.notes && (
-            <div className="mt-4 border-t border-[#edf2f6] pt-3">
+            <div className="mt-4 border-t border-[#edf2f6] pt-3 pb-1">
               <span className="text-xs font-bold text-[#5d7390] uppercase tracking-wide">Notes:</span>
               <p className="mt-1 text-sm text-[#334155] italic">"{visit.notes}"</p>
             </div>
           )}
+
+          {/* Share Action Block */}
+          <div className="mt-4 flex gap-2 border-t border-[#edf2f6] pt-3">
+            <button 
+              type="button"
+              onClick={() => handleShare(visit)}
+              className="flex items-center justify-center gap-1.5 text-xs font-bold text-blue bg-[#ebf3fc] px-4 py-2 rounded-xl hover:bg-blue/15 transition-all"
+            >
+              Share with Client ➦
+            </button>
+          </div>
         </div>
       ))}
 
