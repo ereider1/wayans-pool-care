@@ -38,6 +38,7 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
   const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'image' | 'video' } | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [generatedPngs, setGeneratedPngs] = useState<Record<string, string>>({});
+  const [copyingId, setCopyingId] = useState<string | null>(null);
 
   const isVideo = (path: string) => {
     const p = path.toLowerCase();
@@ -102,6 +103,26 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
       alert('Failed to generate PNG image. Please try again.');
     } finally {
       setExportingId(null);
+    }
+  };
+
+  const handleCopyPng = async (visitId: string, dataUrl: string) => {
+    setCopyingId(visitId);
+    try {
+      const response = await fetch(dataUrl);
+      const blob = await response.blob();
+      
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob,
+        })
+      ]);
+      alert('Success! Image copied to clipboard. You can now open WhatsApp and paste it directly into your chat.');
+    } catch (err) {
+      console.error('Error copying image to clipboard:', err);
+      alert('Your browser or device does not support copying images directly from web canvas. Please use "Share / Save Image" or download instead!');
+    } finally {
+      setCopyingId(null);
     }
   };
 
@@ -249,19 +270,26 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
               <div className="flex-1 min-w-0">
                 <p className="text-xs font-bold text-neutral-800">PNG Ready!</p>
                 <p className="text-[10px] text-[#5d7390] mt-0.5 truncate">Click below to save or share as an image file.</p>
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2 flex flex-wrap gap-1.5">
                   <button
                     onClick={() => handleSharePngFile(visit, generatedPngs[visit.id])}
-                    className="text-[10px] font-black bg-blue text-white px-3 py-1.5 rounded-lg hover:bg-blue/90"
+                    className="text-[10px] font-black bg-blue text-white px-2.5 py-1.5 rounded-lg hover:bg-blue/90"
                   >
-                    Share / Save Image
+                    Share / Save
+                  </button>
+                  <button
+                    disabled={copyingId === visit.id}
+                    onClick={() => handleCopyPng(visit.id, generatedPngs[visit.id])}
+                    className="text-[10px] font-black bg-neutral-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-neutral-900 disabled:opacity-65"
+                  >
+                    {copyingId === visit.id ? 'Copying...' : 'Copy Image 📋'}
                   </button>
                   <a
                     href={generatedPngs[visit.id]}
                     download={`pool-report-${(poolName || 'Pool').replace(/\s+/g, '-').toLowerCase()}-${visit.id.slice(0, 8)}.png`}
-                    className="text-[10px] font-black bg-white border border-neutral-300 text-neutral-700 px-3 py-1.5 rounded-lg hover:bg-neutral-100 block text-center"
+                    className="text-[10px] font-black bg-white border border-neutral-300 text-neutral-700 px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 text-center"
                   >
-                    Download Directly
+                    Download
                   </a>
                   <button
                     onClick={() => setGeneratedPngs(prev => {
@@ -269,9 +297,9 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
                       delete copy[visit.id];
                       return copy;
                     })}
-                    className="text-[10px] font-bold text-neutral-500 hover:text-neutral-800 px-2"
+                    className="text-[10px] font-bold text-neutral-500 hover:text-neutral-800 px-1.5"
                   >
-                    Close
+                    × Close
                   </button>
                 </div>
               </div>
