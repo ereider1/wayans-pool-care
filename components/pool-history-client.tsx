@@ -155,17 +155,17 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       {visits.map(visit => (
-        <div key={visit.id} className="rounded-2xl border border-[#d3e0eb] bg-white shadow-sm overflow-hidden">
+        <div key={visit.id} className="rounded-3xl border border-[#e2eaf1] bg-white shadow-sm overflow-hidden hover:shadow-md transition-all duration-300">
           
           {/* This wrapper div is exactly what gets captured by html-to-image */}
-          <div id={`export-card-${visit.id}`} className="p-5 bg-white">
+          <div id={`export-card-${visit.id}`} className="p-6 bg-white">
             <div className="flex items-center justify-between">
-              <span className="font-bold text-ink">
+              <span className="text-sm font-extrabold text-[#0f2942]">
                 {new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(visit.visited_at))}
               </span>
-              <span className={`px-2 py-1 rounded text-xs font-bold ${
+              <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider ${
                 visit.status === 'normal' ? 'bg-[#e3f7eb] text-[#1b9453]' : 
                 visit.status === 'check' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
               }`}>
@@ -173,19 +173,32 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
               </span>
             </div>
 
-            <div className="mt-3 flex gap-4 text-sm border-b border-[#edf2f6] pb-3">
-              <div><span className="text-[#5d7390]">pH:</span> <span className="font-bold">{visit.ph}</span></div>
-              <div><span className="text-[#5d7390]">Cl:</span> <span className="font-bold">{visit.chlorine} ppm</span></div>
+            {/* High-fidelity side-by-side stats blocks */}
+            <div className="mt-4 grid grid-cols-2 gap-3 border-b border-[#f2f6fa] pb-4">
+              <div className="rounded-2xl bg-[#ebf5fe] p-3 text-center border border-[#d0e3fc]">
+                <span className="block text-[10px] font-extrabold text-[#4c7397] uppercase tracking-wider">pH Level</span>
+                <span className="text-2xl font-black text-blue">{visit.ph}</span>
+                <span className="block text-[9px] font-bold text-[#5d7390] mt-0.5">
+                  {visit.ph < 7.2 || visit.ph > 7.8 ? '⚠️ Out of Range' : '✨ Ideal Range'}
+                </span>
+              </div>
+              <div className="rounded-2xl bg-[#e3f7eb] p-3 text-center border border-[#cbeedd]">
+                <span className="block text-[10px] font-extrabold text-[#207a44] uppercase tracking-wider">Chlorine</span>
+                <span className="text-2xl font-black text-[#1b9453]">{visit.chlorine} <span className="text-xs font-bold">ppm</span></span>
+                <span className="block text-[9px] font-bold text-[#207a44]/85 mt-0.5">
+                  {visit.chlorine < 1.0 || visit.chlorine > 3.0 ? '⚠️ Out of Range' : '✨ Ideal Range'}
+                </span>
+              </div>
             </div>
 
             {/* Chemicals Section */}
             {visit.visit_chemicals.length > 0 && (
-              <div className="mt-3">
-                <span className="text-xs font-bold text-[#5d7390] uppercase tracking-wide">Chemicals Added:</span>
-                <ul className="mt-1 space-y-1">
+              <div className="mt-4 border-b border-[#f2f6fa] pb-4">
+                <span className="text-xs font-extrabold text-[#5d7390] uppercase tracking-wider">Chemicals Added</span>
+                <ul className="mt-2 space-y-1.5">
                   {visit.visit_chemicals.map((chem, idx) => (
-                    <li key={idx} className="text-sm font-semibold text-[#1e293b]">
-                      ✓ {chem.chemical} — {chem.amount} {chem.unit}
+                    <li key={idx} className="inline-flex items-center gap-2 mr-2 rounded-xl bg-slate-50 border border-slate-100 px-3 py-1.5 text-xs font-bold text-[#1e293b]">
+                      <span className="text-blue">✓</span> {chem.chemical} — {chem.amount} {chem.unit}
                     </li>
                   ))}
                 </ul>
@@ -195,11 +208,11 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
             {/* Photos/Videos Section */}
             {visit.visit_photos.length > 0 && (
               <div className="mt-4">
-                <span className="text-xs font-bold text-[#5d7390] uppercase tracking-wide">Media Entries:</span>
-                <div className="mt-2 flex flex-wrap gap-2">
+                <span className="text-xs font-extrabold text-[#5d7390] uppercase tracking-wider">Media Entries</span>
+                <div className="mt-2 flex flex-wrap gap-2.5">
                   {visit.visit_photos.map(photo => {
                     const url = photoUrls[photo.storage_path];
-                    if (!url) return <div key={photo.id} className="h-16 w-16 animate-pulse rounded-lg bg-[#edf2f6]" />;
+                    if (!url) return <div key={photo.id} className="h-16 w-16 animate-pulse rounded-2xl bg-[#edf2f6]" />;
 
                     const video = isVideo(photo.storage_path);
 
@@ -208,7 +221,7 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
                         key={photo.id}
                         type="button"
                         onClick={() => openPreview(photo.storage_path)}
-                        className="relative h-16 w-16 overflow-hidden rounded-lg border border-[#b9ccdc] bg-[#edf2f6] hover:opacity-85 transition-opacity"
+                        className="relative h-16 w-16 overflow-hidden rounded-2xl border border-[#b9ccdc] bg-[#edf2f6] hover:opacity-85 hover:scale-[1.03] active:scale-[0.97] transition-all duration-200"
                         data-html2canvas-ignore="true" // Optional instruction to hide interactive preview buttons in PNG captures
                       >
                         {video ? (
@@ -232,20 +245,22 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
             )}
 
             {visit.notes && (
-              <div className="mt-4 border-t border-[#edf2f6] pt-3 pb-1">
-                <span className="text-xs font-bold text-[#5d7390] uppercase tracking-wide">Notes:</span>
-                <p className="mt-1 text-sm text-[#334155] italic">"{visit.notes}"</p>
+              <div className="mt-4 border-t border-[#f2f6fa] pt-3 pb-1">
+                <span className="text-xs font-extrabold text-[#5d7390] uppercase tracking-wider">Notes</span>
+                <p className="mt-1.5 text-sm text-[#475569] italic font-medium bg-slate-50/50 rounded-xl p-3 border border-slate-100/50">
+                  "{visit.notes}"
+                </p>
               </div>
             )}
           </div>
 
           {/* Action Buttons Section (Excluded from PNG capture) */}
-          <div className="p-5 pt-0 border-t border-[#edf2f6] flex flex-wrap gap-2">
+          <div className="p-5 pt-0 border-t border-[#f2f6fa] flex flex-wrap gap-2 bg-slate-50/20">
             <button 
               type="button"
               disabled={exportingId === visit.id}
               onClick={() => handleExportPng(visit)}
-              className="flex items-center justify-center gap-1.5 text-xs font-bold text-neutral-700 bg-neutral-100 px-4 py-2.5 rounded-xl hover:bg-neutral-200 transition-all disabled:opacity-60"
+              className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-[#0f2942] bg-[#f2f6fa] hover:bg-[#e2eaf1] border border-[#e2eaf1] px-5 py-3 rounded-2xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60"
             >
               {exportingId === visit.id ? 'Creating PNG...' : 'Export as .PNG 🖼'}
             </button>
@@ -253,8 +268,8 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
 
           {/* Dynamic Generated PNG Preview & Download Area */}
           {generatedPngs[visit.id] && (
-            <div className="m-5 mt-0 p-4 rounded-xl bg-neutral-50 border border-dashed border-neutral-200 flex items-center gap-4 animate-fade-in">
-              <div className="relative h-20 w-16 overflow-hidden rounded-lg border border-neutral-200 bg-white flex-shrink-0">
+            <div className="m-5 mt-0 p-4 rounded-3xl bg-neutral-50 border border-dashed border-neutral-200 flex items-center gap-4 animate-fade-in">
+              <div className="relative h-20 w-16 overflow-hidden rounded-2xl border border-neutral-200 bg-white flex-shrink-0">
                 <img 
                   src={generatedPngs[visit.id]} 
                   alt="Generated report preview" 
@@ -262,26 +277,26 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
                 />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="text-xs font-bold text-neutral-800">PNG Ready!</p>
+                <p className="text-xs font-extrabold text-neutral-800">PNG Ready!</p>
                 <p className="text-[10px] text-[#5d7390] mt-0.5 truncate">Click below to save or share as an image file.</p>
-                <div className="mt-2 flex flex-wrap gap-1.5">
+                <div className="mt-2.5 flex flex-wrap gap-1.5">
                   <button
                     onClick={() => handleSharePngFile(visit, generatedPngs[visit.id])}
-                    className="text-[10px] font-black bg-blue text-white px-2.5 py-1.5 rounded-lg hover:bg-blue/90"
+                    className="text-[10px] font-black bg-blue text-white px-3 py-2 rounded-xl hover:bg-blue/90"
                   >
                     Share / Save
                   </button>
                   <button
                     disabled={copyingId === visit.id}
                     onClick={() => handleCopyPng(visit.id, generatedPngs[visit.id])}
-                    className="text-[10px] font-black bg-neutral-800 text-white px-2.5 py-1.5 rounded-lg hover:bg-neutral-900 disabled:opacity-65"
+                    className="text-[10px] font-black bg-neutral-800 text-white px-3 py-2 rounded-xl hover:bg-neutral-900 disabled:opacity-65"
                   >
                     {copyingId === visit.id ? 'Copying...' : 'Copy Image 📋'}
                   </button>
                   <a
                     href={generatedPngs[visit.id]}
                     download={`pool-report-${(poolName || 'Pool').replace(/\s+/g, '-').toLowerCase()}-${visit.id.slice(0, 8)}.png`}
-                    className="text-[10px] font-black bg-white border border-neutral-300 text-neutral-700 px-2.5 py-1.5 rounded-lg hover:bg-neutral-100 text-center"
+                    className="text-[10px] font-black bg-white border border-neutral-300 text-neutral-700 px-3 py-2 rounded-xl hover:bg-neutral-100 text-center"
                   >
                     Download
                   </a>

@@ -55,28 +55,57 @@ export default async function PoolDetail({ params }: { params: Promise<{ id: str
           &larr; Back to Dashboard
         </Link>
         
-        <header className="rounded-2xl bg-navy px-5 py-5 text-white shadow-soft">
+        {/* Premium Gradient Header with Bottom Wave Curve */}
+        <header className="rounded-3xl bg-gradient-to-br from-[#0c243c] via-[#0f3d59] to-[#195a75] px-6 py-8 text-white shadow-soft relative overflow-hidden pb-14">
+          {/* Subtle grid pattern overlay */}
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px] pointer-events-none" />
+          
           <div className="flex items-center gap-3">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue text-xl font-bold">≈</div>
-            <span className="text-lg font-bold">{pool.name}</span>
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-blue text-xl font-bold shadow-soft">≈</div>
+            <span className="text-xl font-extrabold tracking-tight">{pool.name}</span>
           </div>
-          {pool.owner_name && <h1 className="mt-6 text-sm font-normal">Owner: {pool.owner_name}</h1>}
-          {pool.address && <p className="mt-1 text-sm text-[#c9dfef]">{pool.address}</p>}
+
+          <div className="mt-8 flex flex-wrap gap-2">
+            {pool.owner_name && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm border border-white/10">
+                👤 Owner: {pool.owner_name}
+              </span>
+            )}
+            {pool.volume && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm border border-white/10">
+                💧 Volume: {Number(pool.volume).toLocaleString()} Gal
+              </span>
+            )}
+            {pool.address && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-3 py-1 text-xs font-bold text-white backdrop-blur-sm border border-white/10">
+                📍 {pool.address}
+              </span>
+            )}
+          </div>
+
+          {/* Dynamic Wave Shape Bottom */}
+          <div className="absolute bottom-0 left-0 right-0 w-full overflow-hidden leading-[0]">
+            <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block h-[22px] w-full fill-[#f7fafc]">
+              <path d="M985.66,92.83C906.67,72,823.78,31,743.84,14.19c-82.26-17.34-168.06-16.33-250.45.39-57.84,11.73-114,31.07-172,41.86A600.21,600.21,0,0,1,0,27.35V120H1200V95.8C1132.19,118.92,1055.71,111.31,985.66,92.83Z" fill="#f7fafc"></path>
+            </svg>
+          </div>
         </header>
 
         <div className="mt-6">
-          <Link href={`/pool/${pool.id}/visit`} className="flex min-h-14 w-full items-center justify-center rounded-xl bg-blue font-bold tracking-wide text-white shadow-soft hover:bg-blue/90 transition-colors">
+          <Link href={`/pool/${pool.id}/visit`} className="flex min-h-14 w-full items-center justify-center rounded-2xl bg-blue font-extrabold tracking-wide text-white shadow-soft hover:bg-blue/90 hover:scale-[1.01] active:scale-[0.99] transition-all text-base">
             + NEW VISIT
           </Link>
         </div>
 
         <div className="mt-8">
-          <h2 className="text-lg font-bold text-ink mb-4">Visit History</h2>
+          <h2 className="text-lg font-black text-ink mb-4">Visit History</h2>
           {visits.length > 0 ? (
             <PoolHistoryClient visits={visits as any} photoUrls={photoUrls} />
           ) : (
-            <div className="rounded-2xl border border-dashed border-[#a6bed0] p-8 text-center text-[#5d7390]">
-              <p>No past visits found for this pool.</p>
+            <div className="rounded-3xl border border-dashed border-[#a6bed0] p-10 text-center text-[#5d7390] bg-white">
+              <div className="text-4xl mb-3">📋</div>
+              <p className="font-semibold text-sm">No past visits found.</p>
+              <p className="text-xs text-[#9aa5b5] mt-1">Tap '+ NEW VISIT' above to log your first visit!</p>
             </div>
           )}
         </div>
