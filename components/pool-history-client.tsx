@@ -255,14 +255,21 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
           </div>
 
           {/* Action Buttons Section (Excluded from PNG capture) */}
-          <div className="p-5 pt-0 border-t border-[#f2f6fa] flex flex-wrap gap-2 bg-slate-50/20">
+          <div className="p-5 border-t border-[#f2f6fa] bg-slate-50/15">
             <button 
               type="button"
               disabled={exportingId === visit.id}
               onClick={() => handleExportPng(visit)}
-              className="flex items-center justify-center gap-1.5 text-xs font-extrabold text-[#0f2942] bg-[#f2f6fa] hover:bg-[#e2eaf1] border border-[#e2eaf1] px-5 py-3 rounded-2xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60"
+              className="flex w-full items-center justify-center gap-2 text-sm font-extrabold text-white bg-blue hover:bg-blue/90 px-5 py-3.5 rounded-2xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60 shadow-md shadow-blue/10"
             >
-              {exportingId === visit.id ? 'Creating PNG...' : 'Export as .PNG 🖼'}
+              {exportingId === visit.id ? (
+                <span className="flex items-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                  Preparing Report...
+                </span>
+              ) : (
+                <>Share Report 📲</>
+              )}
             </button>
           </div>
 
