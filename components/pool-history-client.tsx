@@ -92,6 +92,7 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
           padding: '24px',
         },
         pixelRatio: 2, // Double pixel ratio for retina-ready high quality!
+        cacheBust: true,
       });
 
       setGeneratedPngs(prev => ({
@@ -218,7 +219,7 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
                             </div>
                           </div>
                         ) : (
-                          <img src={url} alt={photo.photo_type} className="h-full w-full object-cover" />
+                          <img src={url} alt={photo.photo_type} crossOrigin="anonymous" className="h-full w-full object-cover" />
                         )}
                         <span className="absolute bottom-0 inset-x-0 bg-black/60 py-0.5 text-[8px] font-bold text-white uppercase text-center truncate">
                           {photo.photo_type.replace('_', ' ')}
@@ -240,13 +241,6 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
 
           {/* Action Buttons Section (Excluded from PNG capture) */}
           <div className="p-5 pt-0 border-t border-[#edf2f6] flex flex-wrap gap-2">
-            <button 
-              type="button"
-              onClick={() => handleShare(visit)}
-              className="flex items-center justify-center gap-1.5 text-xs font-bold text-blue bg-[#ebf3fc] px-4 py-2.5 rounded-xl hover:bg-blue/15 transition-all"
-            >
-              Share with Client ➦
-            </button>
             <button 
               type="button"
               disabled={exportingId === visit.id}
