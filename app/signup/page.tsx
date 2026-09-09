@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 export default function SignupPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
+  const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [message, setMessage] = useState('');
@@ -17,12 +18,46 @@ export default function SignupPage() {
     setLoading(true);
     setError('');
     setMessage('');
+
+    const normalizedUsername = username.trim().toLowerCase();
+    
+    if (normalizedUsername.length < 3) {
+      setError('Username must be at least 3 characters long.');
+      setLoading(false);
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(normalizedUsername)) {
+      setError('Username can only contain letters, numbers, hyphens, and underscores.');
+      setLoading(false);
+      return;
+    }
+
+    // Check if username is already taken
+    const { data: existing, error: checkError } = await supabase
+      .from('profiles')
+      .select('username')
+      .eq('username', normalizedUsername)
+      .maybeSingle();
+
+    if (checkError) {
+      console.error('Error checking username uniqueness:', checkError);
+    }
+
+    if (existing) {
+      setError('Username is already taken.');
+      setLoading(false);
+      return;
+    }
     
     const { data, error } = await supabase.auth.signUp({ 
       email, 
       password,
       options: {
         emailRedirectTo: `${window.location.origin}/auth/callback`,
+        data: {
+          username: normalizedUsername,
+        }
       }
     });
 
@@ -55,6 +90,10 @@ export default function SignupPage() {
         <h1 className="mt-8 text-2xl font-bold">Create Account</h1>
         <p className="mt-2 text-sm text-[#5d7390]">Wayan's registration page.</p>
         <label className="mt-6 block text-sm font-bold">
+          Username
+          <input required type="text" value={username} onChange={e => setUsername(e.target.value)} className="focus-ring mt-2 min-h-12 w-full rounded-lg border border-[#c5d5e3] px-3 font-normal" placeholder="e.g. wayan" />
+        </label>
+        <label className="mt-4 block text-sm font-bold">
           Email
           <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="focus-ring mt-2 min-h-12 w-full rounded-lg border border-[#c5d5e3] px-3 font-normal" />
         </label>

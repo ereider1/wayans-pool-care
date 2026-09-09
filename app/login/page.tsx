@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client';
 export default function LoginPage() {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
@@ -15,8 +15,27 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setError('');
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+
+    let emailToUse = identifier.trim();
+
+    // Resolve username to email if it doesn't look like an email address
+    if (!emailToUse.includes('@')) {
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('username', emailToUse.toLowerCase())
+        .maybeSingle();
+
+      if (profileError || !profile?.email) {
+        setError('Unable to sign in with those credentials.');
+        setLoading(false);
+        return;
+      }
+      emailToUse = profile.email;
+    }
+
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email: emailToUse, password });
+    if (signInError) {
       setError('Unable to sign in with those credentials.');
       setLoading(false);
     } else {
@@ -35,8 +54,8 @@ export default function LoginPage() {
         <h1 className="mt-8 text-2xl font-bold">Sign in</h1>
         <p className="mt-2 text-sm text-[#5d7390]">Private access.</p>
         <label className="mt-6 block text-sm font-bold">
-          Email
-          <input required type="email" value={email} onChange={e => setEmail(e.target.value)} className="focus-ring mt-2 min-h-12 w-full rounded-lg border border-[#c5d5e3] px-3 font-normal" />
+          Email or Username
+          <input required type="text" value={identifier} onChange={e => setIdentifier(e.target.value)} className="focus-ring mt-2 min-h-12 w-full rounded-lg border border-[#c5d5e3] px-3 font-normal" placeholder="e.g. wayan or email" />
         </label>
         <label className="mt-4 block text-sm font-bold">
           Password

@@ -42,6 +42,13 @@ create table if not exists public.visit_photos (
   created_at timestamptz not null default now()
 );
 
+create table if not exists public.profiles (
+  id uuid primary key references auth.users(id) on delete cascade,
+  username text not null unique check (char_length(username) >= 3),
+  email text not null unique,
+  created_at timestamptz not null default now()
+);
+
 create index if not exists visits_visited_at_idx
   on public.visits (visited_at desc);
 
@@ -55,6 +62,7 @@ alter table public.pools enable row level security;
 alter table public.visits enable row level security;
 alter table public.visit_chemicals enable row level security;
 alter table public.visit_photos enable row level security;
+alter table public.profiles enable row level security;
 
 -- Private storage bucket. The browser only receives the publishable key.
 insert into storage.buckets (id, name, public)
@@ -73,3 +81,24 @@ create policy "Auth user can do all on visit_photos" on public.visit_photos for 
 create policy "Auth user can manage pool photos" on storage.objects for all to authenticated
   using (bucket_id = 'pool-photos')
   with check (bucket_id = 'pool-photos');
+
+create policy "Allow public read access on profiles" on public.profiles for select using (true);
+create policy "Auth user can update own profile" on public.profiles for update to authenticated using (auth.uid() = id) with check (auth.uid() = id);
+
+-- Trigger to automatically create a profile row for new auth users
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, username, email)
+  values (
+    new.id,
+    coalesce(new.raw_user_meta_data->>'username', substring(new.email from '^[^@]+')),
+    new.email
+  );
+  return new;
+end;
+$$ language plpgsql security definer;
+
+create or replace trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
