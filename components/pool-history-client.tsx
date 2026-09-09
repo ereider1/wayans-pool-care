@@ -260,7 +260,7 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
               type="button"
               disabled={exportingId === visit.id}
               onClick={() => handleExportPng(visit)}
-              className="flex w-full items-center justify-center gap-2 text-sm font-extrabold text-white bg-blue hover:bg-blue/90 px-5 py-3.5 rounded-2xl hover:scale-[1.01] active:scale-[0.99] transition-all disabled:opacity-60 shadow-md shadow-blue/10"
+              className="flex w-full items-center justify-center text-[17px] font-bold text-white bg-[#4baa55] hover:bg-[#3e9347] px-5 py-4 rounded-2xl transition-colors duration-200 disabled:opacity-60 shadow-sm"
             >
               {exportingId === visit.id ? (
                 <span className="flex items-center gap-2">
@@ -268,7 +268,7 @@ export default function PoolHistoryClient({ visits, photoUrls, poolName }: PoolH
                   Preparing Report...
                 </span>
               ) : (
-                <>Share Report 📲</>
+                'Share Report'
               )}
             </button>
           </div>
