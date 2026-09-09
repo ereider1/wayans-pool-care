@@ -4,8 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { compressImage } from '@/lib/image';
 
-type Chemical = { chemical: string; amount: string; unit: 'kg' | 'oz' | 'gal' | 'other' };
-const initialChemical = (): Chemical => ({ chemical: '', amount: '', unit: 'kg' });
+type ChemicalUnit = 'kg' | 'oz' | 'gal' | 'lbs' | 'other';
 
 const today = new Intl.DateTimeFormat('en-US', { 
   weekday: 'long', 
@@ -75,13 +74,12 @@ export default function TechnicianForm({ poolId, poolName }: { poolId: string; p
   const [chlorine, setChlorine] = useState(''); 
   const [strip, setStrip] = useState<File | null>(null); 
   const [photos, setPhotos] = useState<File[]>([]); 
-  const [chemicals, setChemicals] = useState<Chemical[]>([]); 
   const [notes, setNotes] = useState(''); 
   const [errors, setErrors] = useState<Record<string, string>>({}); 
   const [saving, setSaving] = useState(false); 
   const [saved, setSaved] = useState(false);
 
-  // Checklist State
+  // Pool Cleaning Checklist State
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({
     check_levels: false,
     skim: false,
@@ -90,6 +88,15 @@ export default function TechnicianForm({ poolId, poolName }: { poolId: string; p
     empty_basket: false,
     backwash_filter: false,
     added_chemicals: false,
+  });
+
+  // Chemicals Added Checkbox List State (from hand-drawn sketch)
+  const [chemChecklist, setChemChecklist] = useState({
+    tablets: { checked: false, amount: '1', label: 'Chlorine (Tablets)', unit: 'other' as const },
+    hcl: { checked: false, amount: '1', label: 'HCl (Liters)', unit: 'other' as const },
+    granules: { checked: false, amount: '', label: 'Chlorine (Granules)', unit: 'kg' as const },
+    soda_ash: { checked: false, amount: '', label: 'Soda Ash', unit: 'kg' as const },
+    other: { checked: false, amount: '', name: '', label: 'Other', unit: 'other' as const },
   });
 
   const toggleChecklistItem = (id: string) => {
@@ -110,11 +117,39 @@ export default function TechnicianForm({ poolId, poolName }: { poolId: string; p
       next.strip = 'A test-strip photo is required.'; 
     }
     
-    chemicals.forEach((item, i) => { 
-      if ((item.chemical || item.amount) && (!item.chemical || !item.amount || Number(item.amount) < 0)) {
-        next[`chemical-${i}`] = 'Add a name and valid amount.'; 
+    // Chemicals validation (Only validate checked items)
+    if (chemChecklist.tablets.checked) {
+      const val = Number(chemChecklist.tablets.amount);
+      if (!chemChecklist.tablets.amount || !Number.isFinite(val) || val <= 0) {
+        next.tablets = 'Enter a valid amount of Chlorine tablets.';
       }
-    }); 
+    }
+    if (chemChecklist.hcl.checked) {
+      const val = Number(chemChecklist.hcl.amount);
+      if (!chemChecklist.hcl.amount || !Number.isFinite(val) || val <= 0) {
+        next.hcl = 'Enter a valid volume of HCl in Liters.';
+      }
+    }
+    if (chemChecklist.granules.checked) {
+      const val = Number(chemChecklist.granules.amount);
+      if (!chemChecklist.granules.amount || !Number.isFinite(val) || val <= 0) {
+        next.granules = 'Enter a valid weight of Chlorine Granules.';
+      }
+    }
+    if (chemChecklist.soda_ash.checked) {
+      const val = Number(chemChecklist.soda_ash.amount);
+      if (!chemChecklist.soda_ash.amount || !Number.isFinite(val) || val <= 0) {
+        next.soda_ash = 'Enter a valid weight of Soda Ash.';
+      }
+    }
+    if (chemChecklist.other.checked) {
+      const val = Number(chemChecklist.other.amount);
+      if (!chemChecklist.other.name.trim()) {
+        next.other = 'Enter a name for the custom chemical.';
+      } else if (!chemChecklist.other.amount || !Number.isFinite(val) || val <= 0) {
+        next.other = 'Enter a valid amount for the custom chemical.';
+      }
+    }
 
     // Checklist validation: Ensure all 7 checklist items are checked
     const allChecked = Object.values(checkedItems).every(val => val === true);
@@ -177,16 +212,53 @@ export default function TechnicianForm({ poolId, poolName }: { poolId: string; p
       }
       
       step = 'chemical record';
-      const validChemicals = chemicals.filter(item => item.chemical.trim() && item.amount); 
+      
+      // Collect valid, checked chemicals from checklist state
+      const validChemicals: { visit_id: string; chemical: string; amount: number; unit: ChemicalUnit }[] = [];
+      
+      if (chemChecklist.tablets.checked && chemChecklist.tablets.amount) {
+        validChemicals.push({
+          visit_id: visitId,
+          chemical: 'Chlorine (Tablets)',
+          amount: Number(chemChecklist.tablets.amount),
+          unit: 'other'
+        });
+      }
+      if (chemChecklist.hcl.checked && chemChecklist.hcl.amount) {
+        validChemicals.push({
+          visit_id: visitId,
+          chemical: 'HCl (Liters)',
+          amount: Number(chemChecklist.hcl.amount),
+          unit: 'other'
+        });
+      }
+      if (chemChecklist.granules.checked && chemChecklist.granules.amount) {
+        validChemicals.push({
+          visit_id: visitId,
+          chemical: 'Chlorine (Granules)',
+          amount: Number(chemChecklist.granules.amount),
+          unit: 'kg'
+        });
+      }
+      if (chemChecklist.soda_ash.checked && chemChecklist.soda_ash.amount) {
+        validChemicals.push({
+          visit_id: visitId,
+          chemical: 'Soda Ash',
+          amount: Number(chemChecklist.soda_ash.amount),
+          unit: 'kg'
+        });
+      }
+      if (chemChecklist.other.checked && chemChecklist.other.name.trim() && chemChecklist.other.amount) {
+        validChemicals.push({
+          visit_id: visitId,
+          chemical: chemChecklist.other.name.trim(),
+          amount: Number(chemChecklist.other.amount),
+          unit: chemChecklist.other.unit
+        });
+      }
+
       if (validChemicals.length) { 
-        const { error } = await supabase.from('visit_chemicals').insert(
-          validChemicals.map(item => ({ 
-            visit_id: visitId, 
-            chemical: item.chemical.trim(), 
-            amount: Number(item.amount), 
-            unit: item.unit 
-          }))
-        ); 
+        const { error } = await supabase.from('visit_chemicals').insert(validChemicals); 
         if (error) throw error; 
       }
       
@@ -361,64 +433,318 @@ export default function TechnicianForm({ poolId, poolName }: { poolId: string; p
             <p className="mt-3 text-xs text-[#5d7390] font-semibold">Take photos or videos of the pool, filters, or equipment.</p>
           </Section>
 
-          {/* Section 3: Chemicals Added */}
-          <Section number="3" title="Chemicals Added" detail="required">
+          {/* Section 3: Chemicals Added (REVISED TO CHECKLIST FROM SKETCH) */}
+          <Section number="3" title="Chemicals Added" detail="optional">
+            <p className="text-xs text-[#5d7390] font-semibold mb-4">Check any chemicals you added during this visit and enter the amount.</p>
             <div className="space-y-3">
-              {chemicals.map((item, index) => (
-                <div key={index} className="grid grid-cols-[minmax(0,110px)_minmax(0,1fr)_74px_32px] gap-2.5 sm:grid-cols-[minmax(0,1fr)_84px_84px_32px] items-center">
-                  <input 
-                    aria-label={`Chemical ${index + 1} name`} 
-                    value={item.chemical} 
-                    onChange={e => setChemicals(old => old.map((row, i) => i === index ? { ...row, chemical: e.target.value } : row))} 
-                    placeholder="Chemical" 
-                    className="focus-ring min-h-12 rounded-xl border border-[#c5d5e3] px-3 text-sm font-semibold text-ink outline-none" 
-                  />
-                  <input 
-                    aria-label={`Chemical ${index + 1} amount`} 
-                    type="number" 
-                    min="0" 
-                    step="0.1" 
-                    value={item.amount} 
-                    onChange={e => setChemicals(old => old.map((row, i) => i === index ? { ...row, amount: e.target.value } : row))} 
-                    placeholder="Amount" 
-                    className="focus-ring min-h-12 rounded-xl border border-[#c5d5e3] px-2 text-sm font-semibold text-ink outline-none" 
-                  />
-                  <select 
-                    aria-label={`Chemical ${index + 1} unit`} 
-                    value={item.unit} 
-                    onChange={e => setChemicals(old => old.map((row, i) => i === index ? { ...row, unit: e.target.value as Chemical['unit'] } : row))} 
-                    className="focus-ring min-h-12 rounded-xl border border-[#c5d5e3] bg-white px-2 text-sm font-bold text-ink outline-none"
+              
+              {/* Chlorine Tablets */}
+              <div className={`flex items-center justify-between rounded-2xl border p-4 transition-all duration-200 ${
+                chemChecklist.tablets.checked 
+                  ? 'border-blue/30 bg-[#ebf5fe]/20 shadow-sm' 
+                  : 'border-[#e2eaf1] bg-white'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setChemChecklist(prev => ({ ...prev, tablets: { ...prev.tablets, checked: !prev.tablets.checked } }))}
+                  className="flex items-center gap-3 text-left flex-1 min-w-0"
+                >
+                  <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-150 ${
+                    chemChecklist.tablets.checked ? 'bg-blue border-blue text-white' : 'border-slate-300 bg-white'
+                  }`}>
+                    {chemChecklist.tablets.checked && (
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">💊</span>
+                    <span className="font-extrabold text-sm text-[#0f2942]">Chlorine (Tablets)</span>
+                  </div>
+                </button>
+                
+                {/* Tactile Counter */}
+                <div className={`flex items-center gap-1.5 transition-all duration-200 ${
+                  chemChecklist.tablets.checked ? 'opacity-100' : 'opacity-40 pointer-events-none'
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => setChemChecklist(prev => ({
+                      ...prev,
+                      tablets: { ...prev.tablets, amount: Math.max(0, Number(prev.tablets.amount || 0) - 1).toString() }
+                    }))}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-lg select-none"
                   >
-                    <option>kg</option>
-                    <option>oz</option>
-                    <option>gal</option>
-                    <option>other</option>
-                  </select>
-                  <button 
-                    type="button" 
-                    aria-label="Remove chemical" 
-                    onClick={() => setChemicals(old => old.filter((_, i) => i !== index))} 
-                    className="focus-ring text-2xl text-[#5d7390] font-bold hover:text-red-500 transition-colors"
-                  >
-                    ×
+                    -
                   </button>
-                  {errors[`chemical-${index}`] && (
-                    <p className="col-span-4 -mt-1.5 text-xs font-bold text-red-600">{errors[`chemical-${index}`]}</p>
-                  )}
+                  <input
+                    type="number"
+                    min="0"
+                    aria-label="Chlorine Tablets amount"
+                    value={chemChecklist.tablets.amount}
+                    onChange={e => setChemChecklist(prev => ({
+                      ...prev,
+                      tablets: { ...prev.tablets, amount: e.target.value }
+                    }))}
+                    className="w-12 text-center font-extrabold text-sm text-[#0f2942] focus-ring border border-slate-200 rounded-xl py-1.5"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setChemChecklist(prev => ({
+                      ...prev,
+                      tablets: { ...prev.tablets, amount: (Number(prev.tablets.amount || 0) + 1).toString() }
+                    }))}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-lg select-none"
+                  >
+                    +
+                  </button>
                 </div>
-              ))}
+              </div>
+
+              {/* HCl Liters */}
+              <div className={`flex items-center justify-between rounded-2xl border p-4 transition-all duration-200 ${
+                chemChecklist.hcl.checked 
+                  ? 'border-blue/30 bg-[#ebf5fe]/20 shadow-sm' 
+                  : 'border-[#e2eaf1] bg-white'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setChemChecklist(prev => ({ ...prev, hcl: { ...prev.hcl, checked: !prev.hcl.checked } }))}
+                  className="flex items-center gap-3 text-left flex-1 min-w-0"
+                >
+                  <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-150 ${
+                    chemChecklist.hcl.checked ? 'bg-blue border-blue text-white' : 'border-slate-300 bg-white'
+                  }`}>
+                    {chemChecklist.hcl.checked && (
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🧪</span>
+                    <span className="font-extrabold text-sm text-[#0f2942]">HCl (Liters)</span>
+                  </div>
+                </button>
+                
+                {/* Tactile Counter */}
+                <div className={`flex items-center gap-1.5 transition-all duration-200 ${
+                  chemChecklist.hcl.checked ? 'opacity-100' : 'opacity-40 pointer-events-none'
+                }`}>
+                  <button
+                    type="button"
+                    onClick={() => setChemChecklist(prev => ({
+                      ...prev,
+                      hcl: { ...prev.hcl, amount: Math.max(0, Number(prev.hcl.amount || 0) - 1).toString() }
+                    }))}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-lg select-none"
+                  >
+                    -
+                  </button>
+                  <input
+                    type="number"
+                    min="0"
+                    aria-label="HCl Liters amount"
+                    value={chemChecklist.hcl.amount}
+                    onChange={e => setChemChecklist(prev => ({
+                      ...prev,
+                      hcl: { ...prev.hcl, amount: e.target.value }
+                    }))}
+                    className="w-12 text-center font-extrabold text-sm text-[#0f2942] focus-ring border border-slate-200 rounded-xl py-1.5"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setChemChecklist(prev => ({
+                      ...prev,
+                      hcl: { ...prev.hcl, amount: (Number(prev.hcl.amount || 0) + 1).toString() }
+                    }))}
+                    className="flex h-9 w-9 items-center justify-center rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-extrabold text-lg select-none"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+
+              {/* Chlorine Granules */}
+              <div className={`flex items-center justify-between rounded-2xl border p-4 transition-all duration-200 ${
+                chemChecklist.granules.checked 
+                  ? 'border-blue/30 bg-[#ebf5fe]/20 shadow-sm' 
+                  : 'border-[#e2eaf1] bg-white'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setChemChecklist(prev => ({ ...prev, granules: { ...prev.granules, checked: !prev.granules.checked } }))}
+                  className="flex items-center gap-3 text-left flex-1 min-w-0"
+                >
+                  <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-150 ${
+                    chemChecklist.granules.checked ? 'bg-blue border-blue text-white' : 'border-slate-300 bg-white'
+                  }`}>
+                    {chemChecklist.granules.checked && (
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">❄️</span>
+                    <span className="font-extrabold text-sm text-[#0f2942]">Chlorine (Granules/Powder)</span>
+                  </div>
+                </button>
+                
+                {/* KG Input */}
+                <div className={`flex items-center gap-2 transition-all duration-200 ${
+                  chemChecklist.granules.checked ? 'opacity-100' : 'opacity-40 pointer-events-none'
+                }`}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="0.0"
+                    aria-label="Chlorine Granules amount"
+                    value={chemChecklist.granules.amount}
+                    onChange={e => setChemChecklist(prev => ({
+                      ...prev,
+                      granules: { ...prev.granules, amount: e.target.value }
+                    }))}
+                    className="w-20 text-center font-extrabold text-sm text-[#0f2942] focus-ring border border-slate-200 rounded-xl py-1.5 outline-none"
+                  />
+                  <span className="text-xs font-black text-[#5d7390]">KG</span>
+                </div>
+              </div>
+
+              {/* Soda Ash */}
+              <div className={`flex items-center justify-between rounded-2xl border p-4 transition-all duration-200 ${
+                chemChecklist.soda_ash.checked 
+                  ? 'border-blue/30 bg-[#ebf5fe]/20 shadow-sm' 
+                  : 'border-[#e2eaf1] bg-white'
+              }`}>
+                <button
+                  type="button"
+                  onClick={() => setChemChecklist(prev => ({ ...prev, soda_ash: { ...prev.soda_ash, checked: !prev.soda_ash.checked } }))}
+                  className="flex items-center gap-3 text-left flex-1 min-w-0"
+                >
+                  <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-150 ${
+                    chemChecklist.soda_ash.checked ? 'bg-blue border-blue text-white' : 'border-slate-300 bg-white'
+                  }`}>
+                    {chemChecklist.soda_ash.checked && (
+                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-lg">🧼</span>
+                    <span className="font-extrabold text-sm text-[#0f2942]">Soda Ash</span>
+                  </div>
+                </button>
+                
+                {/* KG Input */}
+                <div className={`flex items-center gap-2 transition-all duration-200 ${
+                  chemChecklist.soda_ash.checked ? 'opacity-100' : 'opacity-40 pointer-events-none'
+                }`}>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    placeholder="0.0"
+                    aria-label="Soda Ash amount"
+                    value={chemChecklist.soda_ash.amount}
+                    onChange={e => setChemChecklist(prev => ({
+                      ...prev,
+                      soda_ash: { ...prev.soda_ash, amount: e.target.value }
+                    }))}
+                    className="w-20 text-center font-extrabold text-sm text-[#0f2942] focus-ring border border-slate-200 rounded-xl py-1.5 outline-none"
+                  />
+                  <span className="text-xs font-black text-[#5d7390]">KG</span>
+                </div>
+              </div>
+
+              {/* Other Chemical */}
+              <div className={`rounded-2xl border p-4 transition-all duration-200 ${
+                chemChecklist.other.checked 
+                  ? 'border-blue/30 bg-[#ebf5fe]/20 shadow-sm' 
+                  : 'border-[#e2eaf1] bg-white'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setChemChecklist(prev => ({ ...prev, other: { ...prev.other, checked: !prev.other.checked } }))}
+                    className="flex items-center gap-3 text-left flex-1 min-w-0"
+                  >
+                    <div className={`flex h-6 w-6 flex-shrink-0 items-center justify-center rounded-lg border transition-all duration-150 ${
+                      chemChecklist.other.checked ? 'bg-blue border-blue text-white' : 'border-slate-300 bg-white'
+                    }`}>
+                      {chemChecklist.other.checked && (
+                        <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">➕</span>
+                      <span className="font-extrabold text-sm text-[#0f2942]">Other Chemical</span>
+                    </div>
+                  </button>
+                </div>
+                
+                {/* Other Input Fields */}
+                {chemChecklist.other.checked && (
+                  <div className="mt-4 grid grid-cols-[1fr_80px_80px] gap-2 items-center animate-fade-in">
+                    <input
+                      type="text"
+                      placeholder="Chemical Name"
+                      aria-label="Other chemical name"
+                      value={chemChecklist.other.name}
+                      onChange={e => setChemChecklist(prev => ({
+                        ...prev,
+                        other: { ...prev.other, name: e.target.value }
+                      }))}
+                      className="focus-ring min-h-11 rounded-xl border border-[#c5d5e3] px-3 text-xs font-bold text-ink outline-none"
+                    />
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.1"
+                      placeholder="0.0"
+                      aria-label="Other chemical amount"
+                      value={chemChecklist.other.amount}
+                      onChange={e => setChemChecklist(prev => ({
+                        ...prev,
+                        other: { ...prev.other, amount: e.target.value }
+                      }))}
+                      className="focus-ring min-h-11 rounded-xl border border-[#c5d5e3] px-2 text-xs font-extrabold text-ink outline-none text-center"
+                    />
+                    <select
+                      aria-label="Other chemical unit"
+                      value={chemChecklist.other.unit}
+                      onChange={e => setChemChecklist(prev => ({
+                        ...prev,
+                        other: { ...prev.other, unit: e.target.value as any }
+                      }))}
+                      className="focus-ring min-h-11 rounded-xl border border-[#c5d5e3] bg-white px-1 text-xs font-bold text-ink outline-none"
+                    >
+                      <option value="kg">kg</option>
+                      <option value="oz">oz</option>
+                      <option value="gal">gal</option>
+                      <option value="lbs">lbs</option>
+                      <option value="other">other</option>
+                    </select>
+                  </div>
+                )}
+              </div>
+
             </div>
             
-            <button 
-              type="button" 
-              onClick={() => setChemicals(old => [...old, initialChemical()])} 
-              className="focus-ring mt-4 min-h-10 font-extrabold text-blue text-sm hover:underline"
-            >
-              ＋ Add Chemical
-            </button>
+            {/* Validation Errors for Chemicals */}
+            {(errors.tablets || errors.hcl || errors.granules || errors.soda_ash || errors.other) && (
+              <p className="mt-3 text-xs font-bold text-red-600">
+                {errors.tablets || errors.hcl || errors.granules || errors.soda_ash || errors.other}
+              </p>
+            )}
           </Section>
 
-          {/* Section 4: Pool Cleaning Checklist (NEW SECTION) */}
+          {/* Section 4: Pool Cleaning Checklist */}
           <Section number="4" title="Pool Cleaning" detail="Required checklist">
             <p className="text-xs text-[#5d7390] font-semibold mb-4">Select everything you did, then save.</p>
             <div className="space-y-2.5">
@@ -461,7 +787,7 @@ export default function TechnicianForm({ poolId, poolName }: { poolId: string; p
             )}
           </Section>
 
-          {/* Section 5: Additional Notes (Was 4) */}
+          {/* Section 5: Additional Notes */}
           <Section number="5" title="Additional Notes" detail="optional">
             <textarea 
               aria-label="Additional notes" 
