@@ -88,13 +88,35 @@ create policy "Auth user can update own profile" on public.profiles for update t
 -- Trigger to automatically create a profile row for new auth users
 create or replace function public.handle_new_user()
 returns trigger as $$
+declare
+  base_username text;
+  new_username text;
+  counter integer := 1;
 begin
-  insert into public.profiles (id, username, email)
-  values (
-    new.id,
-    coalesce(new.raw_user_meta_data->>'username', substring(new.email from '^[^@]+')),
-    new.email
+  -- 1. Get initial username from metadata, falling back to email prefix
+  base_username := coalesce(
+    new.raw_user_meta_data->>'username',
+    substring(new.email from '^[^@]+')
   );
+
+  -- 2. Clean username (only alphanumeric, hyphens, and underscores)
+  base_username := lower(regexp_replace(base_username, '[^a-zA-Z0-9_-]', '', 'g'));
+
+  -- 3. Ensure minimum length of 3 characters
+  if char_length(base_username) < 3 then
+    base_username := base_username || 'usr';
+  end if;
+
+  new_username := base_username;
+
+  -- 4. Append counter to resolve username conflicts
+  while exists (select 1 from public.profiles where username = new_username) loop
+    new_username := base_username || counter::text;
+    counter := counter + 1;
+  end loop;
+
+  insert into public.profiles (id, username, email)
+  values (new.id, new_username, new.email);
   return new;
 end;
 $$ language plpgsql security definer;
